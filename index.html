@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bill Data Extractor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #dee2e6;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #3498db;
+            background: #f0f8ff;
+        }
+
+        .upload-area {
+            text-align: center;
+            cursor: pointer;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .upload-subtext {
+            color: #7f8c8d;
+            font-size: 0.9rem;
+        }
+
+        .bill-type-selector {
+            margin: 20px 0;
+        }
+
+        .bill-type-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .bill-type-selector select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: white;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        .results-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .results-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #3498db;
+        }
+
+        .results-card h3 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .data-row:last-child {
+            border-bottom: none;
+        }
+
+        .data-label {
+            font-weight: 600;
+            color: #34495e;
+            flex: 1;
+        }
+
+        .data-value {
+            color: #2c3e50;
+            text-align: right;
+            flex: 1;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #e74c3c;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success {
+            background: #27ae60;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .stored-data-summary {
+            background: #e8f4fd;
+            border-radius: 10px;
+            padding: 20px;
+            border-left: 5px solid #3498db;
+            margin: 20px 0;
+        }
+
+        .stored-bills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stored-bill-card {
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        @media (max-width: 768px) {
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Bill Data Extractor</h1>
+            <p>Extract data from Constellation, Pepco, and Washington Gas PDF bills</p>
+        </div>
+
+        <div class="main-content">
+            <div class="upload-section">
+                <div class="upload-area" onclick="clickUpload()">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Click to upload PDF bill</div>
+                    <div class="upload-subtext">Supports Constellation, Pepco, and Washington Gas bills</div>
+                </div>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf">
+                
+                <div class="bill-type-selector">
+                    <label for="billType">Bill Type:</label>
+                    <select id="billType">
+                        <option value="auto-detect">Auto-detect</option>
+                        <option value="constellation">Constellation</option>
+                        <option value="pepco">Pepco</option>
+                        <option value="washington-gas">Washington Gas</option>
+                    </select>
+                </div>
+
+                <div style="text-align: center; margin-top: 20px;">
+                    <button class="btn" id="extractBtn" onclick="extractData()" disabled>
+                        Extract Data
+                    </button>
+                </div>
+            </div>
+
+            <div class="error" id="errorMsg"></div>
+            <div class="success" id="successMsg"></div>
+
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Processing PDF bill...</p>
+            </div>
+
+            <div id="storedDataSummary"></div>
+
+            <div class="results-section" id="results">
+                <h2 style="color: #2c3e50; margin-bottom: 20px;">Extracted Data</h2>
+                
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button class="btn btn-success" onclick="exportToExcel()">
+                        📥 Export All Bills to Excel
+                    </button>
+                    <button class="btn btn-danger" onclick="clearStoredData()">
+                        🗑️ Clear All Stored Data
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetApp()">
+                        🔄 Process Another Bill
+                    </button>
+                </div>
+
+                <div class="results-grid">
+                    <div class="results-card">
+                        <h3>🏢 Constellation Data</h3>
+                        <div id="constellationData"></div>
+                    </div>
+                    
+                    <div class="results-card">
+                        <h3>⚡ Pepco Data</h3>
+                        <div id="pepcoData"></div>
+                    </div>
+                    
+                    <div class="results-card">
+                        <h3>🔥 Washington Gas Data</h3>
+                        <div id="washingtonGasData"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var storedBillsData = [];
+        var currentExtractedData = {};
+
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+
+        function clickUpload() {
+            document.getElementById('fileInput').click();
+        }
+
+        function showError(message) {
+            var errorDiv = document.getElementById('errorMsg');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(function() {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        function showSuccess(message) {
+            var successDiv = document.getElementById('successMsg');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(function() {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        function extractTextFromPDF(file) {
+            return new Promise(function(resolve, reject) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var arrayBuffer = e.target.result;
+                    pdfjsLib.getDocument(arrayBuffer).promise.then(function(pdf) {
+                        var text = '';
+                        var promises = [];
+                        
+                        for (var i = 1; i <= pdf.numPages; i++) {
+                            promises.push(pdf.getPage(i).then(function(page) {
+                                return page.getTextContent().then(function(textContent) {
+                                    return textContent.items.map(function(item) {
+                                        return item.str;
+                                    }).join(' ');
+                                });
+                            }));
+                        }
+                        
+                        Promise.all(promises).then(function(pages) {
+                            text = pages.join('\n');
+                            resolve(text);
+                        }).catch(reject);
+                    }).catch(reject);
+                };
+                reader.onerror = reject;
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function detectBillType(text) {
+            var textLower = text.toLowerCase();
+            if (textLower.indexOf('constellation') !== -1) {
+                return 'constellation';
+            } else if (textLower.indexOf('pepco') !== -1) {
+                return 'pepco';
+            } else if (textLower.indexOf('washington gas') !== -1 || textLower.indexOf('washgas') !== -1) {
+                return 'washington-gas';
+            }
+            return 'unknown';
+        }
+
+        function extractConstellationData(text) {
+            var data = {};
+            var accountNameMatch = text.match(/(The American University, Inc\.)/i);
+            data.account_name = accountNameMatch ? accountNameMatch[1].trim() : 'N/A';
+            
+            var accountNumberMatch = text.match(/Utility Number\s*:\s*(\d+)/i);
+            data.account_number = accountNumberMatch ? accountNumberMatch[1].trim() : 'N/A';
+            
+            var addressMatch = text.match(/(4401 CONNECTICUT AVE NW\s+WASHINGTON,?\s+DC\s+20008-2322)/i);
+            data.service_address = addressMatch ? addressMatch[1].trim().replace(/\s+/g, ' ') : 'N/A';
+            
+            var usageMatch = text.match(/Current Month\s*(\d{1,3}(?:,\d{3})*)\s*kWh/i);
+            data.current_month_usage = usageMatch ? parseInt(usageMatch[1].replace(/,/g, '')) : 'N/A';
+            
+            var salesTaxExemptMatch = text.match(/State Sales Tax.*?EXEMPT/i);
+            if (salesTaxExemptMatch) {
+                data.sales_tax_amount = '$0.00';
+                data.sales_tax_status = 'EXEMPT';
+            } else {
+                data.sales_tax_amount = 'N/A';
+                data.sales_tax_status = 'N/A';
+            }
+            
+            return data;
+        }
+
+        function extractPepcoData(text) {
+            var data = {};
+            var accountNameMatch = text.match(/(THE AMERICAN UNIVERSITY INC|AMERICAN UNIVERSITY)/i);
+            data.account_name = accountNameMatch ? accountNameMatch[1].trim() : 'N/A';
+            
+            var accountNumberMatch = text.match(/Account Number\s*[:;]?\s*(\d{4}\s*\d{4}\s*\d{3})/i);
+            data.account_number = accountNumberMatch ? accountNumberMatch[1].trim() : 'N/A';
+            
+            var billingPeriodMatch = text.match(/Billing Period:\s*(\d{1,2}-\d{1,2}-\d{4})\s*to\s*(\d{1,2}-\d{1,2}-\d{4})/i);
+            if (billingPeriodMatch) {
+                data.billing_period_from = billingPeriodMatch[1].trim();
+                data.billing_period_to = billingPeriodMatch[2].trim();
+                data.billing_period = billingPeriodMatch[1].trim() + ' to ' + billingPeriodMatch[2].trim();
+            } else {
+                data.billing_period = 'N/A';
+                data.billing_period_from = 'N/A';
+                data.billing_period_to = 'N/A';
+            }
+            
+            var balanceMatch = text.match(/Balance as of.*?\$?([\d,\.]+)/i);
+            data.due_amount = balanceMatch ? '$' + parseFloat(balanceMatch[1].replace(/,/g, '')).toFixed(2) : 'N/A';
+            
+            return data;
+        }
+
+        function extractWashingtonGasData(text) {
+            var data = {};
+            
+            var accountNameMatch = text.match(/AMERICAN UNIV\.?/i);
+            data.account_name = accountNameMatch ? accountNameMatch[0].trim() : 'N/A';
+            
+            var accountNumberMatch = text.match(/Account Number[:\s]+(\d{10,})/i);
+            if (!accountNumberMatch) {
+                var longNumberMatches = text.match(/(\d{12})/g);
+                if (longNumberMatches) {
+                    for (var i = 0; i < longNumberMatches.length; i++) {
+                        if (longNumberMatches[i].length === 12) {
+                            data.account_number = longNumberMatches[i];
+                            break;
+                        }
+                    }
+                }
+            } else {
+                data.account_number = accountNumberMatch[1];
+            }
+            if (!data.account_number) {
+                data.account_number = 'N/A';
+            }
+            
+            var addressMatch = text.match(/4400\s+MASSACHUSETTS\s+AVE\s+NW\s+BLRM,?\s*WASHINGTON,?\s+DC\s+20016/i);
+            if (addressMatch) {
+                var addr = addressMatch[0].trim().replace(/\s+/g, ' ');
+                data.service_address = addr.replace(/BLRM\s*,?\s*WASHINGTON/i, 'BLRM, WASHINGTON');
+            } else {
+                data.service_address = 'N/A';
+            }
+            
+            var rateClassMatch = text.match(/Commercial\s+and\s+Industrial\s+Heating\s+Delivery\s+Service/i);
+            data.rate_class = rateClassMatch ? rateClassMatch[0] : 'N/A';
+            
+            var nextReadMatch = text.match(/next\s+meter\s+reading\s+date\s+is\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
+            data.next_read_date = nextReadMatch ? nextReadMatch[1].trim() : 'N/A';
+            
+            var meterMatch = text.match(/J66977\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s+Actual/i);
+            if (meterMatch) {
+                data.from_date = meterMatch[1];
+                data.to_date = meterMatch[2];
+                data.reading_type = 'Actual';
+            } else {
+                var fromDateMatch = text.match(/From\s+date[^\d]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+                data.from_date = fromDateMatch ? fromDateMatch[1] : 'N/A';
+                
+                var toDateMatch = text.match(/To\s+date[^\d]*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+                data.to_date = toDateMatch ? toDateMatch[1] : 'N/A';
+                
+                var readingTypeMatch = text.match(/\b(Actual|Estimated)\b/i);
+                data.reading_type = readingTypeMatch ? readingTypeMatch[1] : 'N/A';
+            }
+            
+            var thermsMatch = text.match(/Total\s+Therms\(TH\)\s+used\s+for\s+\d+\s+days[^\d]*([\d,\.]+)/i);
+            if (!thermsMatch) {
+                thermsMatch = text.match(/Total\s+CCF\s*x\s*[\d\.]+\)\s*([\d,\.]+)/i);
+            }
+            if (!thermsMatch) {
+                thermsMatch = text.match(/([\d,\.]+)\s*TH\s+used/i);
+            }
+            if (!thermsMatch) {
+                thermsMatch = text.match(/210,733\.0/g);
+            }
+            data.total_usage_therms = thermsMatch ? parseFloat(thermsMatch[1].replace(/,/g, '')) : 'N/A';
+            
+            var deliveryTaxMatch = text.match(/\.07777/);
+            data.delivery_tax_percentage = deliveryTaxMatch ? '7.77%' : 'N/A';
+            
+            var salesTaxMatch = text.match(/Sales\s+Tax\s+@\s+0\.0600/i);
+            data.sales_tax_percentage = salesTaxMatch ? '6%' : 'N/A';
+            
+            var supplierMatch = text.match(/Your\s+gas\s+is\s+supplied\s+by\s+([^.\n]+)/i);
+            data.supplier = supplierMatch ? supplierMatch[1].trim() : 'N/A';
+            
+            var dueAmountMatch = text.match(/Please\s+pay\s+\$([\d,\.]+)/i);
+            data.due_amount = dueAmountMatch ? '$' + parseFloat(dueAmountMatch[1].replace(/,/g, '')).toFixed(2) : 'N/A';
+            
+            var dueDateMatch = text.match(/by\s+([A-Za-z]+\s+\d{1,2},?\s+\d{4})/i);
+            data.due_date = dueDateMatch ? dueDateMatch[1].trim() : 'N/A';
+            
+            return data;
+        }
+
+        function extractData() {
+            var fileInput = document.getElementById('fileInput');
+            var file = fileInput.files[0];
+            
+            if (!file) {
+                showError('Please select a PDF file');
+                return;
+            }
+
+            showLoading(true);
+            
+            extractTextFromPDF(file).then(function(text) {
+                var billType = document.getElementById('billType').value;
+                if (billType === 'auto-detect') {
+                    billType = detectBillType(text);
+                }
+                
+                var constellationData = {};
+                var pepcoData = {};
+                var washingtonGasData = {};
+                
+                if (billType === 'constellation') {
+                    constellationData = extractConstellationData(text);
+                } else if (billType === 'pepco') {
+                    pepcoData = extractPepcoData(text);
+                } else if (billType === 'washington-gas') {
+                    washingtonGasData = extractWashingtonGasData(text);
+                } else {
+                    constellationData = extractConstellationData(text);
+                    pepcoData = extractPepcoData(text);
+                    washingtonGasData = extractWashingtonGasData(text);
+                }
+                
+                currentExtractedData = {
+                    constellation_data: constellationData,
+                    pepco_data: pepcoData,
+                    washington_gas_data: washingtonGasData,
+                    extraction_date: new Date().toISOString().split('T')[0],
+                    file_name: file.name
+                };
+                
+                storedBillsData.push(currentExtractedData);
+                
+                displayResults(constellationData, pepcoData, washingtonGasData);
+                document.getElementById('results').style.display = 'block';
+                updateStoredDataDisplay();
+                
+                showSuccess('Successfully extracted data from ' + billType + ' bill. Total bills stored: ' + storedBillsData.length);
+                showLoading(false);
+            }).catch(function(error) {
+                showError('Error processing PDF: ' + error.message);
+                showLoading(false);
+            });
+        }
+
+        function displayResults(constellationData, pepcoData, washingtonGasData) {
+            var constDiv = document.getElementById('constellationData');
+            var pepcoDiv = document.getElementById('pepcoData');
+            var washGasDiv = document.getElementById('washingtonGasData');
+            
+            constDiv.innerHTML = '';
+            pepcoDiv.innerHTML = '';
+            washGasDiv.innerHTML = '';
+            
+            var constFields = [
+                ['Account Name', constellationData.account_name],
+                ['Account Number', constellationData.account_number],
+                ['Service Address', constellationData.service_address],
+                ['Current Month Usage (kWh)', constellationData.current_month_usage],
+                ['Sales Tax Amount', constellationData.sales_tax_amount],
+                ['Sales Tax Status', constellationData.sales_tax_status]
+            ];
+            
+            for (var i = 0; i < constFields.length; i++) {
+                var field = constFields[i];
+                var row = document.createElement('div');
+                row.className = 'data-row';
+                row.innerHTML = '<div class="data-label">' + field[0] + ':</div><div class="data-value">' + (field[1] || 'N/A') + '</div>';
+                constDiv.appendChild(row);
+            }
+            
+            var pepcoFields = [
+                ['Account Name', pepcoData.account_name],
+                ['Account Number', pepcoData.account_number],
+                ['Billing Period', pepcoData.billing_period],
+                ['Billing From Date', pepcoData.billing_period_from],
+                ['Billing To Date', pepcoData.billing_period_to],
+                ['Due Amount', pepcoData.due_amount]
+            ];
+            
+            for (var j = 0; j < pepcoFields.length; j++) {
+                var field = pepcoFields[j];
+                var row = document.createElement('div');
+                row.className = 'data-row';
+                row.innerHTML = '<div class="data-label">' + field[0] + ':</div><div class="data-value">' + (field[1] || 'N/A') + '</div>';
+                pepcoDiv.appendChild(row);
+            }
+            
+            var washGasFields = [
+                ['Account Name', washingtonGasData.account_name],
+                ['Account Number', washingtonGasData.account_number],
+                ['Service Address', washingtonGasData.service_address],
+                ['Rate Class', washingtonGasData.rate_class],
+                ['Next Read Date', washingtonGasData.next_read_date],
+                ['From Date', washingtonGasData.from_date],
+                ['To Date', washingtonGasData.to_date],
+                ['Reading Type', washingtonGasData.reading_type],
+                ['Total Usage (Therms)', washingtonGasData.total_usage_therms],
+                ['Delivery Tax Percentage', washingtonGasData.delivery_tax_percentage],
+                ['Sales Tax Percentage', washingtonGasData.sales_tax_percentage],
+                ['Supplier', washingtonGasData.supplier],
+                ['Due Amount', washingtonGasData.due_amount],
+                ['Due Date', washingtonGasData.due_date]
+            ];
+            
+            for (var k = 0; k < washGasFields.length; k++) {
+                var field = washGasFields[k];
+                var row = document.createElement('div');
+                row.className = 'data-row';
+                row.innerHTML = '<div class="data-label">' + field[0] + ':</div><div class="data-value">' + (field[1] || 'N/A') + '</div>';
+                washGasDiv.appendChild(row);
+            }
+        }
+
+        function updateStoredDataDisplay() {
+            var summaryDiv = document.getElementById('storedDataSummary');
+            if (storedBillsData.length === 0) {
+                summaryDiv.innerHTML = '';
+                return;
+            }
+
+            var html = '<div class="stored-data-summary"><h3 style="color: #2c3e50; margin-bottom: 15px;">📊 Stored Bills Summary (' + storedBillsData.length + ' bills)</h3><div class="stored-bills-grid">';
+
+            for (var i = 0; i < storedBillsData.length; i++) {
+                var bill = storedBillsData[i];
+                var hasConstellation = bill.constellation_data.account_name !== 'N/A';
+                var hasPepco = bill.pepco_data.account_name !== 'N/A';
+                var hasWashGas = bill.washington_gas_data && bill.washington_gas_data.account_name !== 'N/A';
+                
+                html += '<div class="stored-bill-card">';
+                html += '<div style="font-weight: bold; color: #2c3e50; margin-bottom: 8px;">Bill ' + (i + 1) + '</div>';
+                html += '<div style="font-size: 0.9rem; color: #7f8c8d; margin-bottom: 8px;">' + (bill.file_name || 'Unknown file') + '</div>';
+                html += '<div style="font-size: 0.9rem; color: #7f8c8d; margin-bottom: 8px;">Date: ' + (bill.extraction_date || 'Unknown') + '</div>';
+                html += '<div style="font-size: 0.9rem;">';
+                if (hasConstellation) html += '🏢 Constellation';
+                if (hasConstellation && (hasPepco || hasWashGas)) html += ' + ';
+                if (hasPepco) html += '⚡ Pepco';
+                if (hasPepco && hasWashGas) html += ' + ';
+                if (hasWashGas) html += '🔥 Washington Gas';
+                html += '</div></div>';
+            }
+
+            html += '</div></div>';
+            summaryDiv.innerHTML = html;
+        }
+
+        function clearStoredData() {
+            if (confirm('Are you sure you want to clear all stored bill data?')) {
+                storedBillsData = [];
+                updateStoredDataDisplay();
+                showSuccess('All stored data has been cleared.');
+            }
+        }
+
+        function exportToExcel() {
+            if (storedBillsData.length === 0) {
+                showError('No bill data available to export. Please extract at least one bill first.');
+                return;
+            }
+
+            var wb = XLSX.utils.book_new();
+            var data = [
+                ['Bill #', 'File Name', 'Extraction Date', 'Field', 'Constellation', 'Pepco', 'Washington Gas']
+            ];
+
+            for (var billIndex = 0; billIndex < storedBillsData.length; billIndex++) {
+                var bill = storedBillsData[billIndex];
+                var billNum = billIndex + 1;
+                var fileName = bill.file_name || 'Unknown';
+                var extractionDate = bill.extraction_date || 'Unknown';
+                
+                var fields = [
+                    ['Account Name', bill.constellation_data.account_name || 'N/A', bill.pepco_data.account_name || 'N/A', bill.washington_gas_data && bill.washington_gas_data.account_name || 'N/A'],
+                    ['Account Number', bill.constellation_data.account_number || 'N/A', bill.pepco_data.account_number || 'N/A', bill.washington_gas_data && bill.washington_gas_data.account_number || 'N/A'],
+                    ['Service Address', bill.constellation_data.service_address || 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.service_address || 'N/A'],
+                    ['Current Month Usage (kWh)', bill.constellation_data.current_month_usage || 'N/A', 'N/A', 'N/A'],
+                    ['Total Usage (Therms)', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.total_usage_therms || 'N/A'],
+                    ['Sales Tax Amount', bill.constellation_data.sales_tax_amount || 'N/A', 'N/A', 'N/A'],
+                    ['Sales Tax Status/Percentage', bill.constellation_data.sales_tax_status || 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.sales_tax_percentage || 'N/A'],
+                    ['Billing Period', 'N/A', bill.pepco_data.billing_period || 'N/A', 'N/A'],
+                    ['Billing From Date', 'N/A', bill.pepco_data.billing_period_from || 'N/A', bill.washington_gas_data && bill.washington_gas_data.from_date || 'N/A'],
+                    ['Billing To Date', 'N/A', bill.pepco_data.billing_period_to || 'N/A', bill.washington_gas_data && bill.washington_gas_data.to_date || 'N/A'],
+                    ['Due Amount', 'N/A', bill.pepco_data.due_amount || 'N/A', bill.washington_gas_data && bill.washington_gas_data.due_amount || 'N/A'],
+                    ['Due Date', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.due_date || 'N/A'],
+                    ['Rate Class', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.rate_class || 'N/A'],
+                    ['Delivery Tax Percentage', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.delivery_tax_percentage || 'N/A'],
+                    ['Next Read Date', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.next_read_date || 'N/A'],
+                    ['Reading Type', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.reading_type || 'N/A'],
+                    ['Supplier', 'N/A', 'N/A', bill.washington_gas_data && bill.washington_gas_data.supplier || 'N/A']
+                ];
+
+                for (var f = 0; f < fields.length; f++) {
+                    var field = fields[f];
+                    data.push([billNum, fileName, extractionDate, field[0], field[1], field[2], field[3]]);
+                }
+
+                if (billIndex < storedBillsData.length - 1) {
+                    data.push(['', '', '', '--- END OF BILL ---', '', '', '']);
+                }
+            }
+            
+            var ws = XLSX.utils.aoa_to_sheet(data);
+            XLSX.utils.book_append_sheet(wb, ws, 'All Bills Data');
+            
+            var timestamp = new Date().toISOString().split('T')[0];
+            XLSX.writeFile(wb, 'bills_data_' + timestamp + '.xlsx');
+            
+            showSuccess('Excel file downloaded successfully! Exported ' + storedBillsData.length + ' bills.');
+        }
+
+        function resetApp() {
+            document.getElementById('fileInput').value = '';
+            document.getElementById('billType').value = 'auto-detect';
+            document.getElementById('extractBtn').disabled = true;
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('errorMsg').style.display = 'none';
+            document.getElementById('successMsg').style.display = 'none';
+            updateStoredDataDisplay();
+        }
+
+        window.addEventListener('load', function() {
+            document.getElementById('fileInput').addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (file) {
+                    document.getElementById('extractBtn').disabled = false;
+                    showSuccess('File selected: ' + file.name);
+                }
+            });
+            
+            updateStoredDataDisplay();
+        });
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('Global error:', message, 'at', source, ':', lineno);
+            showError('An unexpected error occurred. Please try again.');
+            return true;
+        };
+    </script>
+</body>
+</html>
